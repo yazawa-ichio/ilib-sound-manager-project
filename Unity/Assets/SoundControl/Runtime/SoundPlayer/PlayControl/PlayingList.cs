@@ -16,29 +16,29 @@ namespace ILib.Audio
 
 		Transform m_Root;
 
-		int m_PoolIndex;
 		int m_TotalCount;
-		SoundObject[] m_Stack;
+		Stack<SoundObject> m_Stack = new Stack<SoundObject>();
 
 		List<SoundObject> m_Playing = new List<SoundObject>();
 		List<Request> m_Request = new List<Request>();
 
 		public bool IsCreateIfNotEnough { get; set; }
 
-		int m_MaxCount;
+		public int MaxPoolCount { get; set; } = 12;
 
-		public PlayingList(Transform root, int maxCount)
+		public PlayingList(Transform root)
 		{
 			m_Root = root;
-			m_MaxCount = maxCount;
-			m_Stack = new SoundObject[m_MaxCount];
-			 
-			for (int i = 0; i < Mathf.Min(m_MaxCount, 16); i++)
+		}
+
+		public void ReservePool(int count = -1)
+		{
+			if (count < 0) count = MaxPoolCount;
+			for (int i = m_TotalCount; i < count; i++)
 			{
-				m_Stack[m_PoolIndex++] = SoundObject.Create(this, m_Root);
+				m_Stack.Push(SoundObject.Create(this, m_Root));
 				m_TotalCount++;
 			}
-
 		}
 
 		public void Play(SoundInfo info, PlayingSoundContext context)
@@ -136,12 +136,11 @@ namespace ILib.Audio
 
 		SoundObject Borrow()
 		{
-			if (m_PoolIndex > 0)
+			if (m_Stack.Count > 0)
 			{
-				m_PoolIndex--;
-				return m_Stack[m_PoolIndex];
+				return m_Stack.Pop();
 			}
-			else if (m_TotalCount < m_MaxCount)
+			else if (m_TotalCount < MaxPoolCount)
 			{
 				m_TotalCount++;
 				return SoundObject.Create(this, m_Root);
@@ -155,9 +154,9 @@ namespace ILib.Audio
 
 		void Return(SoundObject obj)
 		{
-			if (m_PoolIndex < m_MaxCount)
+			if (m_Stack.Count < MaxPoolCount)
 			{
-				m_Stack[m_PoolIndex++] = obj;
+				m_Stack.Push(obj);
 			}
 			else
 			{
@@ -210,19 +209,9 @@ namespace ILib.Audio
 
 		public void Dispose()
 		{
-			foreach (var obj in m_Playing.ToArray())
-			{
-				if(obj != null) obj.Destroy();
-			}
+			GameObject.Destroy(m_Root.gameObject);
 			m_Playing.Clear();
-			for (int i = 0; i < m_Stack.Length; i++)
-			{
-				if (m_Stack[i] != null)
-				{
-					m_Stack[i].Destroy();
-					m_Stack[i] = null;
-				}
-			}
+			m_Stack.Clear();
 			m_Request.Clear();
 			m_Root = null;
 		}

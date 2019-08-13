@@ -9,6 +9,7 @@ namespace ILib.Audio
 		Action<bool> m_OnLoaded;
 		public Action OnDispose;
 
+		public int Revision { get; set; }
 		public bool IsLoaded { get; private set; }
 		public bool IsSuccess { get; private set; }
 

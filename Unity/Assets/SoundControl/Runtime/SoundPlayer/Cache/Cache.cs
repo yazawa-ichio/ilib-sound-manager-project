@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace ILib.Audio
 {
-	public class Cache<T>
+	internal class Cache
 	{
 		class Entry
 		{
@@ -15,15 +15,9 @@ namespace ILib.Audio
 			public int Count;
 		}
 
+		int m_Revision = 0;
 		Dictionary<string, Entry> m_Cache = new Dictionary<string, Entry>();
-
-		IProvider<T> m_Provider;
 		Queue<Action> m_EventQueue = new Queue<Action>();
-
-		public Cache(IProvider<T> provider)
-		{
-			m_Provider = provider;
-		}
 
 		public SoundInfo GetInfo(string key)
 		{
@@ -35,7 +29,7 @@ namespace ILib.Audio
 			return null;
 		}
 
-		public void Add(string key, T prm, bool referenceCounting, Action<bool, Exception> onLoad)
+		public void Add(string key, bool referenceCounting, ref bool cacheEmpty)
 		{
 			Entry entry;
 			if (!m_Cache.TryGetValue(key, out entry))
@@ -50,14 +44,7 @@ namespace ILib.Audio
 			{
 				entry.Global = true;
 			}
-			if (entry.Info == null)
-			{
-				m_Provider.Load(prm, (x, ex) => OnLoad(key, onLoad, x, ex));
-			}
-			else
-			{
-				onLoad?.Invoke(true, null);
-			}
+			cacheEmpty = entry.Info == null;
 		}
 
 		public void Add(string key, bool referenceCounting, SoundInfo info)
@@ -102,6 +89,10 @@ namespace ILib.Audio
 		{
 			if (!ignoreReferenceCounting)
 			{
+				lock (m_EventQueue)
+				{
+					m_Revision++;
+				}
 				m_Cache.Clear();
 				return;
 			}
@@ -116,13 +107,19 @@ namespace ILib.Audio
 			}
 		}
 
-		public ICacheScope CreateScope(string[] keys, T[] prms)
+		public CacheScope CreateScope(string[] keys)
 		{
 			CacheScope scope = new CacheScope();
+			scope.Revision = m_Revision;
 			scope.OnDispose = () =>
 			{
 				lock (m_EventQueue)
 				{
+					if (scope.Revision != m_Revision)
+					{
+						//全キャッシュをした場合は古いスコープは無視する
+						return;
+					}
 					m_EventQueue.Enqueue(() =>
 					{
 						foreach (var key in keys)
@@ -132,24 +129,10 @@ namespace ILib.Audio
 					});
 				}
 			};
-			int count = 0;
-			bool success = true;
-			for (int i = 0; i < keys.Length; i++)
-			{
-				Add(keys[i], prms[i], true, (ret, ex) =>
-				{
-					count++;
-					if (ex != null) success = false;
-					if (count == keys.Length)
-					{
-						scope.OnLoaded(success);
-					}
-				});
-			}
 			return scope;
 		}
 
-		void OnLoad(string key, Action<bool, Exception> onLoad, SoundInfo info, System.Exception ex)
+		public void OnLoad(string key, Action<bool, Exception> onLoad, SoundInfo info, Exception ex)
 		{
 			if (ex == null)
 			{

@@ -1,37 +1,13 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace ILib.Audio
 {
-	public interface IPlayingSoundContext : IDisposable
-	{
-		/// <summary>
-		/// ローディング中もしくは再生待ち中です。
-		/// </summary>
-		bool IsLoading { get; }
-		/// <summary>
-		/// 有効かチェックします。
-		/// ローディングはtrueを返します。
-		/// </summary>
-		bool IsValid { get; }
-		/// <summary>
-		/// 再生を即時停止します。
-		/// 短いループSEはLoopをfalseにする。
-		/// 長いSEはFadeOutを推奨します。
-		/// </summary>
-		void Stop();
 
-		bool Loop { get; set; }
-		float Pitch { get; set; }
-		bool Pause { get; set; }
-		float Volume { get; set; }
-		void FadeIn(float volume, float time);
-		void Fade(float end, float time);
-		void FadeOut(float time);
-	}
-
+	/// <summary>
+	/// 再生中のサウンドのコントローラーの実体です。
+	/// </summary>
 	internal class PlayingSoundContext : IPlayingSoundContext
 	{
 		public static readonly PlayingSoundContext Empty = new PlayingSoundContext() { m_Disposed = true };
