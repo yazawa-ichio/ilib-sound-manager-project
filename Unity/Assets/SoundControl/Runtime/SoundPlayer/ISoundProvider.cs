@@ -17,7 +17,7 @@ namespace ILib.Audio
 		/// </summary>
 		public static ISoundPlayer Create(this ISoundProvider<string> self, SoundPlayerConfig config = null)
 		{
-			return SoundControl.CreateSoundPlayer(self, config);
+			return SoundControl.CreatePlayer(self, config);
 		}
 
 		/// <summary>
@@ -25,7 +25,7 @@ namespace ILib.Audio
 		/// </summary>
 		public static ISoundPlayer<T> Create<T>(this ISoundProvider<T> self, SoundPlayerConfig config = null)
 		{
-			return SoundControl.CreateSoundPlayer(self, config);
+			return SoundControl.CreatePlayer(self, config);
 		}
 
 	}

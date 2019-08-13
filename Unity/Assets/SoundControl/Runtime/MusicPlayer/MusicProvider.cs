@@ -10,13 +10,13 @@ namespace ILib.Audio
 	/// パスでロードが解決できる場合のプロバイダーです。
 	/// Resourcesをパスで探索します
 	/// </summary>
-	public class SoundProvider : SoundProviderBase<string>
+	public class MusicProvider : MusicProviderBase<string>, IMusicProvider
 	{
-		public SoundProvider() { }
+		public MusicProvider() { }
 
-		public SoundProvider(AudioMixerGroup group, string format) : base(group, format) { }
+		public MusicProvider(AudioMixerGroup group, string format) : base(group, format) { }
 
-		public override string GetCacheKey(string prm)
+		protected override string GetString(string prm)
 		{
 			return prm;
 		}
@@ -26,13 +26,13 @@ namespace ILib.Audio
 	/// パスでロードが解決できる場合のプロバイダーです。
 	/// Resourcesをパスで探索します
 	/// </summary>
-	public class SoundProvider<T> : SoundProviderBase<T> where T : ICacheKey
+	public class MusicProvider<T> : MusicProviderBase<T> where T : ICacheKey
 	{
-		public SoundProvider() { }
+		public MusicProvider() { }
 
-		public SoundProvider(AudioMixerGroup group, string format) : base(group, format) { }
+		public MusicProvider(AudioMixerGroup group, string format) : base(group, format) { }
 
-		public override string GetCacheKey(T prm)
+		protected override string GetString(T prm)
 		{
 			return prm.GetCacheKey();
 		}
@@ -42,13 +42,13 @@ namespace ILib.Audio
 	/// パスでロードが解決できる場合のプロバイダーです。
 	/// Resourcesをパスで探索します
 	/// </summary>
-	public class GeneralSoundProvider<T> : SoundProviderBase<T>
+	public class GeneralMusicProvider<T> : MusicProviderBase<T>
 	{
-		public GeneralSoundProvider() { }
+		public GeneralMusicProvider() { }
 
-		public GeneralSoundProvider(AudioMixerGroup group, string format) : base(group, format) { }
+		public GeneralMusicProvider(AudioMixerGroup group, string format) : base(group, format) { }
 
-		public override string GetCacheKey(T prm)
+		protected override string GetString(T prm)
 		{
 			return prm.ToString();
 		}
@@ -58,13 +58,13 @@ namespace ILib.Audio
 	/// パスでロードが解決できる場合のプロバイダーです。
 	/// Resourcesをパスで探索します
 	/// </summary>
-	public class IntKeySoundProvider<T> : SoundProviderBase<T> where T : struct, IConvertible
+	public class IntKeyMusicProvider<T> : MusicProviderBase<T> where T : struct, IConvertible
 	{
-		public IntKeySoundProvider() { }
+		public IntKeyMusicProvider() { }
 
-		public IntKeySoundProvider(AudioMixerGroup group, string format) : base(group, format) { }
+		public IntKeyMusicProvider(AudioMixerGroup group, string format) : base(group, format) { }
 
-		public override string GetCacheKey(T prm)
+		protected override string GetString(T prm)
 		{
 			return prm.ToInt32(null).ToString();
 		}
@@ -74,40 +74,39 @@ namespace ILib.Audio
 	/// パスでロードが解決できる場合のプロバイダーです。
 	/// Resourcesをパスで探索します
 	/// </summary>
-	public abstract class SoundProviderBase<T> : ISoundProvider<T>
+	public abstract class MusicProviderBase<T> : IMusicProvider<T>
 	{
-
 		Func<string, string> m_PathConversion;
 		public Func<string, string> PathConversion { set => m_PathConversion = value; }
 
 		Func<string, AudioMixerGroup> m_GroupSelector;
 		public Func<string, AudioMixerGroup> GroupSelector { set => m_GroupSelector = value; }
 
-		public SoundProviderBase() { }
+		public MusicProviderBase() { }
 
-		public SoundProviderBase(AudioMixerGroup group, string format)
+		public MusicProviderBase(AudioMixerGroup group, string format)
 		{
 			SetGroup(group);
 			SetPathFormat(format);
 		}
 
-		public SoundProviderBase<T> SetGroup(AudioMixerGroup group)
+		public MusicProviderBase<T> SetGroup(AudioMixerGroup group)
 		{
 			m_GroupSelector = (x) => group;
 			return this;
 		}
 
-		public SoundProviderBase<T> SetPathFormat(string format)
+		public MusicProviderBase<T> SetPathFormat(string format)
 		{
 			m_PathConversion = x => string.Format(format, x);
 			return this;
 		}
 
-		public abstract string GetCacheKey(T prm);
+		protected abstract string GetString(T prm);
 
-		string GetPath(T prm)
+		protected string GetPath(T prm)
 		{
-			var key = GetCacheKey(prm);
+			var key = GetString(prm);
 			if (m_PathConversion != null)
 			{
 				key = m_PathConversion(key);
@@ -115,21 +114,21 @@ namespace ILib.Audio
 			return key;
 		}
 
-		bool ISoundProvider<T>.Load(T prm, Action<SoundInfo, Exception> onComplete)
+		bool IMusicProvider<T>.Load(T prm, Action<MusicInfo, Exception> onComplete)
 		{
 			return Load(prm, onComplete);
 		}
 
-		protected virtual bool Load(T prm, Action<SoundInfo, Exception> onComplete)
+		protected virtual bool Load(T prm, Action<MusicInfo, Exception> onComplete)
 		{
 			string path = GetPath(prm);
 			var op = Resources.LoadAsync(path);
 			op.completed += _ =>
 			{
-				var data = op.asset as SoundData;
+				var data = op.asset as MusicData;
 				if (data != null)
 				{
-					onComplete?.Invoke(data.CreateInfo(m_GroupSelector), null);
+					onComplete?.Invoke(data.CreateMusic(m_GroupSelector), null);
 					return;
 				}
 
@@ -140,9 +139,10 @@ namespace ILib.Audio
 				}
 				else
 				{
-					SoundInfo info = new SoundInfo();
+					MusicInfo info = new MusicInfo();
 					info.Clip = clip;
-					info.ControlId = path;
+					info.Volume = 1f;
+					info.Pitch = 1f;
 					if (m_GroupSelector != null)
 					{
 						info.Group = m_GroupSelector("");
@@ -152,6 +152,7 @@ namespace ILib.Audio
 			};
 			return true;
 		}
+
 	}
 
 }

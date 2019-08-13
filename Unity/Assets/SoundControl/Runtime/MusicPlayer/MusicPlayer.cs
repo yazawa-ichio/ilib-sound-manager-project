@@ -4,21 +4,35 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
-	public class MusicPlayer : MusicPlayer<string>
+	/// <summary>
+	/// ミュージックプレイヤーの実体です
+	/// </summary>
+	internal class MusicPlayer : MusicPlayer<string>, IMusicPlayer
 	{
-		public MusicPlayer(Transform root, IMusicProvider<string> provider) : base(root, provider) { }
+		public MusicPlayer(Transform root, IMusicProvider provider, MusicPlayerConfig config = null) : base(root, provider, config) { }
 	}
 
-	public class MusicPlayer<T>
+	/// <summary>
+	/// ミュージックプレイヤーの実体です
+	/// </summary>
+	internal class MusicPlayer<T> : IMusicPlayer<T>, ISoundUpdater
 	{
 		IMusicProvider<T> Provider;
 		MusicStack m_MusicStack = new MusicStack();
 		PlayingMusic m_PlayingMusic;
+		bool m_Disposed;
+		bool m_Removed;
 
-		public bool IsCacheIsStack
+		public bool IsCacheInfoInStack
 		{
-			get => m_MusicStack.IsCacheInStack;
-			set => m_MusicStack.IsCacheInStack = value;
+			get => m_MusicStack.IsCacheInfoInStack;
+			set => m_MusicStack.IsCacheInfoInStack = value;
+		}
+
+		public int MaxPoolCount
+		{
+			get => m_PlayingMusic.MaxPoolCount;
+			set => m_PlayingMusic.MaxPoolCount = value;
 		}
 
 		public T Current
@@ -34,24 +48,36 @@ namespace ILib.Audio
 			}
 		}
 
-		public MusicPlayer(Transform root, IMusicProvider<T> provider)
+		public MusicPlayer(Transform root, IMusicProvider<T> provider, MusicPlayerConfig config = null)
 		{
 			Provider = provider;
-			m_PlayingMusic = new PlayingMusic(root, 2);
+			m_PlayingMusic = new PlayingMusic(root);
+			if (config != null)
+			{
+				IsCacheInfoInStack = config.IsCacheInfoInStack;
+				MaxPoolCount = config.MaxPoolCount;
+			}
 		}
 
-		public void Change(T prm, float time = 2f)
+		public void Change(T prm, float time = 2f, bool clearStack = false)
 		{
-			Change(prm, MusicPlayConfig.Get(time));
+			Change(prm, MusicPlayConfig.Get(time), clearStack);
 		}
 
-		public void Change(T prm, MusicPlayConfig config)
+		public void Change(T prm, MusicPlayConfig config, bool clearStack = false)
 		{
-			if (!config.IsOverrideEqualParam && (object)prm == m_MusicStack.Current)
+			if (!clearStack && !config.IsOverrideEqualParam && (object)prm == m_MusicStack.Current)
 			{
 				return;
 			}
-			m_MusicStack.Pop();
+			if (clearStack)
+			{
+				m_MusicStack.Clear();
+			}
+			else
+			{
+				m_MusicStack.Pop();
+			}
 			var push = m_MusicStack.Push(prm);
 			Play(push, push.Main, config);
 		}
@@ -114,6 +140,11 @@ namespace ILib.Audio
 			m_PlayingMusic.Resume(time);
 		}
 
+		public void ClearStack()
+		{
+			m_MusicStack.Clear();
+		}
+
 		void Play(MusicStack.Entry entry, MusicRequest req, MusicPlayConfig config)
 		{
 			m_PlayingMusic.SetCurrent(entry);
@@ -139,6 +170,7 @@ namespace ILib.Audio
 			{
 				m_PlayingMusic.Stop(config.FadeOutTime);
 			}
+
 			Provider.Load((T)req.Param, (info, ex) =>
 			{
 				if (!config.SkipLoadWait)
@@ -166,9 +198,31 @@ namespace ILib.Audio
 
 		public void Update()
 		{
+			if (m_Disposed)
+			{
+				Remove();
+				return;
+			}
 			m_PlayingMusic.Update();
 		}
 
+		void Remove()
+		{
+			if (!m_Removed)
+			{
+				m_Removed = true;
+				SoundControl.Remove(this, () =>
+				{
+					m_MusicStack.Clear();
+					m_PlayingMusic.Dispose();
+				});
+			}
+		}
 
+		public void Dispose()
+		{
+			if (m_Disposed) return;
+			m_Disposed = true;
+		}
 	}
 }

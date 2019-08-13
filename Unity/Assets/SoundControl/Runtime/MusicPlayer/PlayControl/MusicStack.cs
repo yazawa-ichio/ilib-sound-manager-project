@@ -10,7 +10,7 @@ namespace ILib.Audio
 		
 		Stack<Entry> m_Entries = new Stack<Entry>();
 
-		public bool IsCacheInStack { get; set; }
+		public bool IsCacheInfoInStack { get; set; }
 
 		public object Current
 		{
@@ -46,7 +46,7 @@ namespace ILib.Audio
 
 		public Entry Push(object prm)
 		{
-			if (!IsCacheInStack)
+			if (!IsCacheInfoInStack)
 			{
 				var prev = Peek();
 				prev?.RemoveCache();

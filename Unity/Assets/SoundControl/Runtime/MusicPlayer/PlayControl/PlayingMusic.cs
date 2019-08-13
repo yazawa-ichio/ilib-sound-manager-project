@@ -5,21 +5,20 @@ using UnityEngine;
 namespace ILib.Audio
 {
 
-	public class PlayingMusic
+	internal class PlayingMusic : System.IDisposable
 	{
 
 		object m_CurrentEntry;
 		Transform m_Root;
-		int m_MaxCacheCount;
-		int m_PoolIndex;
-		MusicObject[] m_Pool;
+		
+		Stack<MusicObject> m_Pool = new Stack<MusicObject>();
 		List<MusicObject> m_Playing = new List<MusicObject>();
 
-		public PlayingMusic(Transform root, int maxCacheCount)
+		public int MaxPoolCount { get; set; } = 2;
+
+		public PlayingMusic(Transform root)
 		{
 			m_Root = root;
-			m_MaxCacheCount = maxCacheCount;
-			m_Pool = new MusicObject[maxCacheCount];
 		}
 
 		public void SetCurrent(object entry)
@@ -93,10 +92,9 @@ namespace ILib.Audio
 
 		MusicObject Borrow()
 		{
-			if (m_PoolIndex > 0)
+			if (m_Pool.Count > 0)
 			{
-				m_PoolIndex--;
-				return m_Pool[m_PoolIndex];
+				return m_Pool.Pop();
 			}
 			else
 			{
@@ -107,9 +105,9 @@ namespace ILib.Audio
 		void Return(MusicObject obj)
 		{
 			//再生中のメイン分は引いておく
-			if (m_PoolIndex < m_MaxCacheCount - 1)
+			if (m_Pool.Count < MaxPoolCount)
 			{
-				m_Pool[m_PoolIndex++] = obj;
+				m_Pool.Push(obj);
 			}
 			else
 			{
@@ -134,6 +132,12 @@ namespace ILib.Audio
 			return null;
 		}
 
+		public void Dispose()
+		{
+			GameObject.Destroy(m_Root.gameObject);
+			m_Playing.Clear();
+			m_Root = null;
+		}
 
 	}
 }

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
-	public class MusicObject
+	internal class MusicObject
 	{
 		public static MusicObject Create(Transform parent)
 		{
