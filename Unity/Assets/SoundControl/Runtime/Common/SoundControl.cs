@@ -51,33 +51,33 @@ namespace ILib.Audio
 		public static ISoundPlayer<T> CreatePlayer<T>(ISoundProvider<T> provider, SoundPlayerConfig config = null)
 		{
 			var root = CreatePoolRoot(nameof(ISoundPlayer<T>) + ":" + provider);
-			SoundPlayer<T> player = new SoundPlayer<T>(root, provider, config);
+			SoundPlayerImpl<T> player = new SoundPlayerImpl<T>(root, provider, config);
 			s_Updater.Add(player);
-			return new SoundPlayerRef<T>(player);
+			return new SoundPlayer<T>(player);
 		}
 
 		public static ISoundPlayer CreatePlayer(ISoundProvider<string> provider, SoundPlayerConfig config = null)
 		{
 			var root = CreatePoolRoot(nameof(ISoundPlayer) + ":" + provider);
-			SoundPlayer player = new SoundPlayer(root, provider, config);
+			SoundPlayerImpl player = new SoundPlayerImpl(root, provider, config);
 			s_Updater.Add(player);
-			return new SoundPlayerRef(player);
+			return new SoundPlayer(player);
 		}
 
 		public static IMusicPlayer<T> CreatePlayer<T>(IMusicProvider<T> provider, MusicPlayerConfig config = null)
 		{
 			var root = CreatePoolRoot(nameof(IMusicPlayer<T>) + ":" + provider);
-			MusicPlayer<T> player = new MusicPlayer<T>(root, provider, config);
+			MusicPlayerImpl<T> player = new MusicPlayerImpl<T>(root, provider, config);
 			s_Updater.Add(player);
-			return new MusicPlayerRef<T>(player);
+			return new MusicPlayer<T>(player);
 		}
 
 		public static IMusicPlayer CreatePlayer(IMusicProvider provider, MusicPlayerConfig config = null)
 		{
 			var root = CreatePoolRoot(nameof(IMusicPlayer) + ":" + provider);
-			var player = new MusicPlayer(root, provider, config);
+			var player = new MusicPlayerImpl(root, provider, config);
 			s_Updater.Add(player);
-			return new MusicPlayerRef(player);
+			return new MusicPlayer(player);
 		}
 
 		internal static void Remove(ISoundUpdater player, System.Action onRemove)

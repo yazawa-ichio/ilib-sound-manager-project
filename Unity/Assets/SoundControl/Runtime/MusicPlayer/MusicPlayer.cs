@@ -4,225 +4,67 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
+
 	/// <summary>
-	/// ミュージックプレイヤーの実体です
+	/// 参照が切れた際に自動で回収されるように
+	/// MusicPlayerの実体を持つアクセサー
 	/// </summary>
 	internal class MusicPlayer : MusicPlayer<string>, IMusicPlayer
 	{
-		public MusicPlayer(Transform root, IMusicProvider provider, MusicPlayerConfig config = null) : base(root, provider, config) { }
+		public MusicPlayer(MusicPlayerImpl<string> player) : base(player) { }
 	}
 
 	/// <summary>
-	/// ミュージックプレイヤーの実体です
+	/// 参照が切れた際に自動で回収されるように
+	/// MusicPlayerの実体を持つアクセサー
 	/// </summary>
-	internal class MusicPlayer<T> : IMusicPlayer<T>, ISoundUpdater
+	internal class MusicPlayer<T> : IMusicPlayer<T>
 	{
-		IMusicProvider<T> Provider;
-		MusicStack m_MusicStack = new MusicStack();
-		PlayingMusic m_PlayingMusic;
-		bool m_Disposed;
-		bool m_Removed;
+		MusicPlayerImpl<T> m_Player;
 
-		public bool IsCacheInfoInStack
+		public bool IsCacheInfoInStack { get => m_Player.IsCacheInfoInStack; set => m_Player.IsCacheInfoInStack = value; }
+
+		public int MaxPoolCount { get => m_Player.MaxPoolCount; set => m_Player.MaxPoolCount = value; }
+
+		public T Current => m_Player.Current;
+
+		public MusicPlayer(MusicPlayerImpl<T> player)
 		{
-			get => m_MusicStack.IsCacheInfoInStack;
-			set => m_MusicStack.IsCacheInfoInStack = value;
+			m_Player = player;
 		}
 
-		public int MaxPoolCount
+		~MusicPlayer()
 		{
-			get => m_PlayingMusic.MaxPoolCount;
-			set => m_PlayingMusic.MaxPoolCount = value;
+			Dispose();
 		}
 
-		public T Current
-		{
-			get
-			{
-				var cur = m_MusicStack.Current;
-				if (cur != null)
-				{
-					return (T)cur;
-				}
-				return default;
-			}
-		}
+		public void Change(T prm, float time = 2, bool clearStack = false) => m_Player.Change(prm, time, clearStack);
 
-		public MusicPlayer(Transform root, IMusicProvider<T> provider, MusicPlayerConfig config = null)
-		{
-			Provider = provider;
-			m_PlayingMusic = new PlayingMusic(root);
-			if (config != null)
-			{
-				IsCacheInfoInStack = config.IsCacheInfoInStack;
-				MaxPoolCount = config.MaxPoolCount;
-			}
-		}
+		public void Change(T prm, MusicPlayConfig config, bool clearStack = false) => m_Player.Change(prm, config, clearStack);
 
-		public void Change(T prm, float time = 2f, bool clearStack = false)
-		{
-			Change(prm, MusicPlayConfig.Get(time), clearStack);
-		}
+		public void Pause(float time = 0.3F) => m_Player.Pause(time);
 
-		public void Change(T prm, MusicPlayConfig config, bool clearStack = false)
-		{
-			if (!clearStack && !config.IsOverrideEqualParam && (object)prm == m_MusicStack.Current)
-			{
-				return;
-			}
-			if (clearStack)
-			{
-				m_MusicStack.Clear();
-			}
-			else
-			{
-				m_MusicStack.Pop();
-			}
-			var push = m_MusicStack.Push(prm);
-			Play(push, push.Main, config);
-		}
+		public void Pop(float time = 2, bool startLastPosition = false) => m_Player.Pop(time, startLastPosition);
 
-		public void Push(T prm, float time = 2f)
-		{
-			Push(prm, MusicPlayConfig.Get(time));
-		}
+		public void Pop(MusicPlayConfig config, bool startLastPosition = false) => m_Player.Pop(config, startLastPosition);
 
-		public void Push(T prm, MusicPlayConfig config)
-		{
-			var cur = m_MusicStack.Current;
-			var push = m_MusicStack.Push(prm);
-			if (!config.IsOverrideEqualParam && cur == (object)prm)
-			{
-				return;
-			}
-			Play(push, push.Main, config);
-		}
+		public void Push(T prm, float time = 2) => m_Player.Push(prm, time);
 
-		public void Pop(float time = 2f, bool startLastPosition = false)
-		{
-			Pop(MusicPlayConfig.Get(time), startLastPosition);
-		}
+		public void Push(T prm, MusicPlayConfig config) => m_Player.Push(prm, config);
 
-		public void Pop(MusicPlayConfig config, bool startLastPosition = false)
-		{
-			var cur = m_MusicStack.Current;
-			var pop = m_MusicStack.Pop();
-			if (pop == null)
-			{
-				Debug.Assert(false, "music stack is empty.");
-				Stop(config.FadeOutTime);
-				return;
-			}
-			if (!config.IsOverrideEqualParam && cur == pop.Main.Param)
-			{
-				return;
-			}
-			if (!startLastPosition)
-			{
-				pop.Main.Position = 0;
-			}
-			Play(pop, pop.Main, config);
-		}
+		public void Resume(float time = 0.3F) => m_Player.Resume(time);
 
-		public void Stop(float time = 2f)
-		{
-			m_PlayingMusic.SetCurrent(null);
-			m_PlayingMusic.Stop(time);
-		}
+		public void Stop(float time = 2) => m_Player.Stop(time);
 
-		public void Pause(float time = 0.3f)
-		{
-			m_PlayingMusic.Pause(time);
-		}
-
-		public void Resume(float time = 0.3f)
-		{
-			m_PlayingMusic.Resume(time);
-		}
-
-		public void ClearStack()
-		{
-			m_MusicStack.Clear();
-		}
-
-		void Play(MusicStack.Entry entry, MusicRequest req, MusicPlayConfig config)
-		{
-			m_PlayingMusic.SetCurrent(entry);
-
-			if (req.Music != null)
-			{
-				m_PlayingMusic.Stop(config.FadeOutTime);
-				m_PlayingMusic.Play(entry, req, config);
-				return;
-			}
-
-			var cache = GetCacheInfo(req.Param);
-			if (cache != null)
-			{
-				cache.AddRef();
-				req.Music = cache;
-				m_PlayingMusic.Stop(config.FadeOutTime);
-				m_PlayingMusic.Play(entry, req, config);
-				return;
-			}
-
-			if (config.SkipLoadWait)
-			{
-				m_PlayingMusic.Stop(config.FadeOutTime);
-			}
-
-			Provider.Load((T)req.Param, (info, ex) =>
-			{
-				if (!config.SkipLoadWait)
-				{
-					m_PlayingMusic.Stop(config.FadeOutTime);
-				}
-				if (ex != null)
-				{
-
-				}
-				else
-				{
-					info.AddRef();
-					req.Music = info;
-					m_PlayingMusic.Play(entry, req, config);
-				}
-			});
-		}
-
-		MusicInfo GetCacheInfo(object prm)
-		{
-			return m_MusicStack.GetInfo(prm) ?? m_PlayingMusic.GetCacheInfo(prm) ?? null;
-		}
-
-
-		public void Update()
-		{
-			if (m_Disposed)
-			{
-				Remove();
-				return;
-			}
-			m_PlayingMusic.Update();
-		}
-
-		void Remove()
-		{
-			if (!m_Removed)
-			{
-				m_Removed = true;
-				SoundControl.Remove(this, () =>
-				{
-					m_MusicStack.Clear();
-					m_PlayingMusic.Dispose();
-				});
-			}
-		}
+		public void ClearStack() => m_Player.ClearStack();
 
 		public void Dispose()
 		{
-			if (m_Disposed) return;
-			m_Disposed = true;
+			m_Player.Dispose();
+			m_Player = null;
+			System.GC.SuppressFinalize(this);
 		}
+
 	}
+
 }
