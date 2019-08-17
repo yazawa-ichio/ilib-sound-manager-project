@@ -4,29 +4,30 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
-
-	internal class PlayingMusic : System.IDisposable
+	[AddComponentMenu("")]
+	public class PlayingMusic : MonoBehaviour, System.IDisposable
 	{
 
 		object m_CurrentEntry;
 		Transform m_Root;
+		bool m_Disposed;
 		
 		Stack<MusicObject> m_Pool = new Stack<MusicObject>();
 		List<MusicObject> m_Playing = new List<MusicObject>();
 
 		public int MaxPoolCount { get; set; } = 2;
 
-		public PlayingMusic(Transform root)
+		void Awake()
 		{
-			m_Root = root;
+			m_Root = transform;
 		}
 
-		public void SetCurrent(object entry)
+		internal void SetCurrent(object entry)
 		{
 			m_CurrentEntry = entry;
 		}
 
-		public void Play(object entry, MusicRequest info, MusicPlayConfig config)
+		internal void Play(object entry, MusicRequest info, MusicPlayConfig config)
 		{
 			if (entry != m_CurrentEntry) return;
 			var obj = Borrow();
@@ -34,7 +35,7 @@ namespace ILib.Audio
 			obj.PlayRequest(info, entry, config.FadeInTime);
 		}
 
-		public void Stop(float time)
+		internal void Stop(float time)
 		{
 			foreach (var obj in m_Playing)
 			{
@@ -45,7 +46,7 @@ namespace ILib.Audio
 			}
 		}
 
-		public void Pause(float time)
+		internal void Pause(float time)
 		{
 			foreach (var obj in m_Playing)
 			{
@@ -56,7 +57,7 @@ namespace ILib.Audio
 			}
 		}
 
-		public void Resume(float time)
+		internal void Resume(float time)
 		{
 			foreach (var obj in m_Playing)
 			{
@@ -67,8 +68,15 @@ namespace ILib.Audio
 			}
 		}
 
-		public void Update()
+		void Update()
 		{
+			if (m_Disposed)
+			{
+				m_Playing.Clear();
+				m_Root = null;
+				GameObject.Destroy(gameObject);
+				return;
+			}
 			bool stop = false;
 			for (int i = 0; i < m_Playing.Count; i++)
 			{
@@ -115,7 +123,7 @@ namespace ILib.Audio
 			}
 		}
 
-		public MusicInfo GetCacheInfo(object prm)
+		internal MusicInfo GetCacheInfo(object prm)
 		{
 			for (int i = 0; i < m_Playing.Count; i++)
 			{
@@ -134,9 +142,8 @@ namespace ILib.Audio
 
 		public void Dispose()
 		{
-			GameObject.Destroy(m_Root.gameObject);
-			m_Playing.Clear();
-			m_Root = null;
+			if (m_Disposed) return;
+			m_Disposed = true;
 		}
 
 	}

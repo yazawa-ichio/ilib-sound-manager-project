@@ -4,38 +4,49 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
-	internal static class SoundControl
+	/// <summary>
+	/// オーディオオブジェクトを必要なゲームオブジェクトを確保し管理する用のクラスです。
+	/// 使用しているプレイヤーが破棄されたときに自動的に削除されます。
+	/// また、Release関数を呼ぶと生成したすべてのプールを強制的に破棄します。
+	/// </summary>
+	public static class SoundControl
 	{
-		class SoundControlInstance : MonoBehaviour
+		static bool s_Initialized = false;
+		static GameObject s_Instance = null;
+		static PlayingList s_SharedPlayingList;
+		public static PlayingList SharedPlayingList
 		{
-			private void Update()
+			get
 			{
-				SoundControl.Update();
+				if (s_SharedPlayingList == null)
+				{
+					s_SharedPlayingList = CreatePlayingList("SoundPlayer:Shared");
+				}
+				return s_SharedPlayingList;
 			}
 		}
 
-		static bool s_Initialized = false;
-		static SoundControlInstance s_Instance = null;
-		static List<ISoundUpdater> s_Updater = new List<ISoundUpdater>();
-
+		/// <summary>
+		/// プールをのルートオブジェクトを初期化します。
+		/// この処理は手動で実行しなくても自動で実行されます。
+		/// </summary>
 		public static void Initialize()
 		{
 			if (s_Initialized) return;
 			s_Initialized = true;
 			var obj = new GameObject("SoundControl");
 			GameObject.DontDestroyOnLoad(obj);
-			s_Instance = obj.AddComponent<SoundControlInstance>();
+			s_Instance = obj;
 		}
 
+		/// <summary>
+		/// 管理しているオブジェクトを破棄します。
+		/// </summary>
 		public static void Release()
 		{
 			if (!s_Initialized) return;
-			foreach (var updater in s_Updater.ToArray())
-			{
-				updater.Dispose();
-			}
-			s_Updater.Clear();
-			GameObject.Destroy(s_Instance.gameObject, 0.1f);
+			s_SharedPlayingList = null;
+			GameObject.Destroy(s_Instance, 0.1f);
 			s_Instance = null;
 			s_Initialized = false;
 		}
@@ -48,59 +59,80 @@ namespace ILib.Audio
 			return obj.transform;
 		}
 
+		/// <summary>
+		/// 再生リストを作成します。
+		/// デフォルトの共有リスト以外で、プレイヤーの再生リストを共有する際に利用します。
+		/// </summary>
+		public static PlayingList CreatePlayingList(string name)
+		{
+			return CreatePoolRoot(name).gameObject.AddComponent<PlayingList>();
+		}
+
+		static PlayingList GetPlayingList(string name, SoundPlayerConfig config = null)
+		{
+			bool useSharedPool = config == null || config.UseSharedPool;
+
+			PlayingList list = null;
+			if (useSharedPool)
+			{
+				list = SharedPlayingList;
+			}
+			else
+			{
+				list = CreatePlayingList(name);
+			}
+			if (config != null && list.MaxPoolCount < config.InitMaxPoolCount)
+			{
+				list.MaxPoolCount = config.InitMaxPoolCount;
+			}
+			return list;
+		}
+
+		/// <summary>
+		/// サウンドプレイヤーを作成します。
+		/// 設定情報がnullの場合は共有リストを使用します。
+		/// </summary>
 		public static ISoundPlayer<T> CreatePlayer<T>(ISoundProvider<T> provider, SoundPlayerConfig config = null)
 		{
-			var root = CreatePoolRoot(nameof(ISoundPlayer<T>) + ":" + provider);
-			SoundPlayerImpl<T> player = new SoundPlayerImpl<T>(root, provider, config);
-			s_Updater.Add(player);
-			return new SoundPlayer<T>(player);
+			PlayingList list = GetPlayingList(nameof(ISoundPlayer<T>) + ":" + provider, config);
+			return new SoundPlayerImpl<T>(list, provider, config);
 		}
 
+		/// <summary>
+		/// サウンドプレイヤーを作成します。
+		/// 設定情報がnullの場合は共有リストを使用します。
+		/// </summary>
 		public static ISoundPlayer CreatePlayer(ISoundProvider<string> provider, SoundPlayerConfig config = null)
 		{
-			var root = CreatePoolRoot(nameof(ISoundPlayer) + ":" + provider);
-			SoundPlayerImpl player = new SoundPlayerImpl(root, provider, config);
-			s_Updater.Add(player);
-			return new SoundPlayer(player);
+			PlayingList list = GetPlayingList(nameof(ISoundPlayer) + ":" + provider, config);
+			return new SoundPlayerImpl(list, provider, config);
 		}
 
+		/// <summary>
+		/// 音声リストを作成します。
+		/// </summary>
+		public static PlayingMusic CreatePlayingMusic(string name)
+		{
+			return CreatePoolRoot(name).gameObject.AddComponent<PlayingMusic>();
+		}
+
+		/// <summary>
+		/// 音声プレイヤーを作成します。
+		/// </summary>
 		public static IMusicPlayer<T> CreatePlayer<T>(IMusicProvider<T> provider, MusicPlayerConfig config = null)
 		{
-			var root = CreatePoolRoot(nameof(IMusicPlayer<T>) + ":" + provider);
-			MusicPlayerImpl<T> player = new MusicPlayerImpl<T>(root, provider, config);
-			s_Updater.Add(player);
-			return new MusicPlayer<T>(player);
+			var list = CreatePlayingMusic(nameof(IMusicPlayer<T>) + ":" + provider);
+			return new MusicPlayerImpl<T>(list, provider, config);
 		}
 
+		/// <summary>
+		/// 音声プレイヤーを作成します。
+		/// </summary>
 		public static IMusicPlayer CreatePlayer(IMusicProvider provider, MusicPlayerConfig config = null)
 		{
-			var root = CreatePoolRoot(nameof(IMusicPlayer) + ":" + provider);
-			var player = new MusicPlayerImpl(root, provider, config);
-			s_Updater.Add(player);
-			return new MusicPlayer(player);
+			var list = CreatePlayingMusic(nameof(IMusicPlayer) + ":" + provider);
+			return new MusicPlayerImpl(list, provider, config);
 		}
-
-		internal static void Remove(ISoundUpdater player, System.Action onRemove)
-		{
-			Initialize();
-			s_Instance.StartCoroutine(_Remove(player, onRemove));
-		}
-
-		static IEnumerator _Remove(ISoundUpdater player, System.Action onRemove)
-		{
-			yield return null;
-			s_Updater.Remove(player);
-			onRemove?.Invoke();
-		}
-
-		static void Update()
-		{
-			for (int i = 0; i < s_Updater.Count; i++)
-			{
-				s_Updater[i].Update();
-			}
-		}
-
 
 	}
 }

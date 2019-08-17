@@ -1,12 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace ILib.Audio
 {
 	public interface ISoundProvider<T>
 	{
+		AudioMixerGroup MixerGroup { get; }
+
 		string GetCacheKey(T prm);
+		
 		bool Load(T prm, System.Action<SoundInfo, System.Exception> onComplete);
 	}
 

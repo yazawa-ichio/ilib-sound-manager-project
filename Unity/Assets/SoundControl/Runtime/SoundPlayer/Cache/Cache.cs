@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace ILib.Audio
 {
-	internal class Cache
+	public class Cache
 	{
 		class Entry
 		{
@@ -16,93 +16,119 @@ namespace ILib.Audio
 		}
 
 		int m_Revision = 0;
+		int m_Ref = 0;
 		Dictionary<string, Entry> m_Cache = new Dictionary<string, Entry>();
-		Queue<Action> m_EventQueue = new Queue<Action>();
+
+		public void AddRef()
+		{
+			System.Threading.Interlocked.Increment(ref m_Ref);
+		}
+
+		public void RemoveRef()
+		{
+			var ret = System.Threading.Interlocked.Decrement(ref m_Ref);
+			if (ret == 0)
+			{
+				Clear(true);
+			}
+		}
 
 		public SoundInfo GetInfo(string key)
 		{
-			Entry entry;
-			if (m_Cache.TryGetValue(key, out entry))
+			lock (m_Cache)
 			{
-				return entry.Info;
+				Entry entry;
+				if (m_Cache.TryGetValue(key, out entry))
+				{
+					return entry.Info;
+				}
+				return null;
 			}
-			return null;
 		}
 
 		public void Add(string key, bool referenceCounting, ref bool cacheEmpty)
 		{
-			Entry entry;
-			if (!m_Cache.TryGetValue(key, out entry))
+			lock (m_Cache)
 			{
-				entry = m_Cache[key] = new Entry();
+				Entry entry;
+				if (!m_Cache.TryGetValue(key, out entry))
+				{
+					entry = m_Cache[key] = new Entry();
+				}
+				if (referenceCounting)
+				{
+					entry.Count++;
+				}
+				else
+				{
+					entry.Global = true;
+				}
+				cacheEmpty = entry.Info == null;
 			}
-			if (referenceCounting)
-			{
-				entry.Count++;
-			}
-			else
-			{
-				entry.Global = true;
-			}
-			cacheEmpty = entry.Info == null;
 		}
 
 		public void Add(string key, bool referenceCounting, SoundInfo info)
 		{
-			Entry entry;
-			if (!m_Cache.TryGetValue(key, out entry))
+			lock (m_Cache)
 			{
-				entry = m_Cache[key] = new Entry();
+				Entry entry;
+				if (!m_Cache.TryGetValue(key, out entry))
+				{
+					entry = m_Cache[key] = new Entry();
+				}
+				if (referenceCounting)
+				{
+					entry.Count++;
+				}
+				else
+				{
+					entry.Global = true;
+				}
+				entry.Info = info;
 			}
-			if (referenceCounting)
-			{
-				entry.Count++;
-			}
-			else
-			{
-				entry.Global = true;
-			}
-			entry.Info = info;
 		}
 
 		public void Remove(string key, bool referenceCounting)
 		{
-			Entry entry;
-			if (m_Cache.TryGetValue(key, out entry))
+			lock (m_Cache)
 			{
-				if (referenceCounting)
+				Entry entry;
+				if (m_Cache.TryGetValue(key, out entry))
 				{
-					entry.Count--;
-				}
-				else
-				{
-					entry.Global = false;
-				}
-				if (!entry.Global && entry.Count == 0)
-				{
-					m_Cache.Remove(key);
+					if (referenceCounting)
+					{
+						entry.Count--;
+					}
+					else
+					{
+						entry.Global = false;
+					}
+					if (!entry.Global && entry.Count == 0)
+					{
+						m_Cache.Remove(key);
+					}
 				}
 			}
 		}
 
 		public void Clear(bool ignoreReferenceCounting = true)
 		{
-			if (!ignoreReferenceCounting)
+			lock (m_Cache)
 			{
-				lock (m_EventQueue)
+				if (!ignoreReferenceCounting)
 				{
 					m_Revision++;
+					m_Cache.Clear();
+					return;
 				}
-				m_Cache.Clear();
-				return;
-			}
-			foreach (var key in m_Cache.Keys.ToArray())
-			{
-				var entry = m_Cache[key];
-				entry.Global = false;
-				if (entry.Count == 0)
+				foreach (var key in m_Cache.Keys.ToArray())
 				{
-					m_Cache.Remove(key);
+					var entry = m_Cache[key];
+					entry.Global = false;
+					if (entry.Count == 0)
+					{
+						m_Cache.Remove(key);
+					}
 				}
 			}
 		}
@@ -113,20 +139,17 @@ namespace ILib.Audio
 			scope.Revision = m_Revision;
 			scope.OnDispose = () =>
 			{
-				lock (m_EventQueue)
+				lock (m_Cache)
 				{
 					if (scope.Revision != m_Revision)
 					{
-						//全キャッシュをした場合は古いスコープは無視する
+						//全キャッシュ削除をした場合は古いスコープは無視する
 						return;
 					}
-					m_EventQueue.Enqueue(() =>
+					foreach (var key in keys)
 					{
-						foreach (var key in keys)
-						{
-							Remove(key, true);
-						}
-					});
+						Remove(key, true);
+					}
 				}
 			};
 			return scope;
@@ -140,28 +163,19 @@ namespace ILib.Audio
 				return;
 			}
 			Entry entry;
-			if (m_Cache.TryGetValue(key, out entry))
+			lock (m_Cache)
 			{
-				if (entry.Global || entry.Count > 0)
+				if (m_Cache.TryGetValue(key, out entry))
 				{
-					entry.Info = info;
-					onLoad?.Invoke(true, null);
-					return;
+					if (entry.Global || entry.Count > 0)
+					{
+						entry.Info = info;
+						onLoad?.Invoke(true, null);
+						return;
+					}
 				}
 			}
 			onLoad?.Invoke(false, null);
-		}
-
-
-		internal void Update()
-		{
-			lock (m_EventQueue)
-			{
-				while (m_EventQueue.Count > 0)
-				{
-					m_EventQueue.Dequeue()?.Invoke();
-				}
-			}
 		}
 
 

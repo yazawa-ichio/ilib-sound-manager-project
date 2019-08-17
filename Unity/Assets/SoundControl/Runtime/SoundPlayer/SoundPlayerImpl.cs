@@ -10,24 +10,19 @@ namespace ILib.Audio
 	/// <summary>
 	/// サウンドプレイヤーの実体です
 	/// </summary>
-	internal class SoundPlayerImpl : SoundPlayerImpl<string>, ISoundPlayer
+	public class SoundPlayerImpl : SoundPlayerImpl<string> , ISoundPlayer
 	{
-		public SoundPlayerImpl(Transform root, ISoundProvider<string> provider, SoundPlayerConfig config = null) : base(root, provider, config) { }
+		public SoundPlayerImpl(PlayingList list, ISoundProvider<string> provider, SoundPlayerConfig config = null, Cache sharedCache = null) : base(list, provider, config, sharedCache) { }
 	}
 
 	/// <summary>
 	/// サウンドプレイヤーの実体です
 	/// </summary>
-	internal class SoundPlayerImpl<T> : ISoundPlayer<T> , ISoundUpdater
+	public class SoundPlayerImpl<T> : ISoundPlayer<T> 
 	{
-
 		public float LoadTimeout { get; set; } = 2f;
 
-		public bool IsCreateIfNotEnough
-		{
-			get => m_PlayingList.IsCreateIfNotEnough;
-			set => m_PlayingList.IsCreateIfNotEnough = value;
-		}
+		public bool IsCreateIfNotEnough { get; set; }
 
 		public int MaxPoolCount
 		{
@@ -37,24 +32,30 @@ namespace ILib.Audio
 
 		public bool IsAddCacheIfLoad { get; set; }
 
-		Cache m_Cache = new Cache();
+		Cache m_Cache;
 		ISoundProvider<T> m_Provider;
 		PlayingList m_PlayingList;
 		bool m_Disposed;
 		bool m_Removed;
-		internal Action m_OnDisposed;
 
-		public SoundPlayerImpl(Transform root, ISoundProvider<T> provider, SoundPlayerConfig config = null)
+		public SoundPlayerImpl(PlayingList list, ISoundProvider<T> provider, SoundPlayerConfig config = null, Cache sharedCache = null)
 		{
 			m_Provider = provider;
-			m_PlayingList = new PlayingList(root);
+			m_PlayingList = list;
+			m_PlayingList.AddRef();
+			m_Cache = sharedCache ?? new Cache();
+			m_Cache.AddRef();
 			if (config != null)
 			{
 				LoadTimeout = config.LoadTimeout;
-				MaxPoolCount = config.MaxPoolCount;
 				IsCreateIfNotEnough = config.IsCreateIfNotEnough;
 				IsAddCacheIfLoad = config.IsAddCacheIfLoad;
 			}
+		}
+
+		~SoundPlayerImpl()
+		{
+			Dispose();
 		}
 
 		public void ReservePool(int count = -1)
@@ -76,7 +77,7 @@ namespace ILib.Audio
 			var info = m_Cache.GetInfo(key);
 			if (info != null)
 			{
-				m_PlayingList.Play(info, ctx);
+				m_PlayingList.Play(info, m_Provider.MixerGroup, ctx, IsCreateIfNotEnough);
 				return ctx;
 			}
 			else
@@ -105,7 +106,7 @@ namespace ILib.Audio
 			if (m_Disposed) return PlayingSoundContext.Empty;
 			var ctx = new PlayingSoundContext();
 			ctx.CreateTime = Time.unscaledTime;
-			m_PlayingList.Play(info, ctx);
+			m_PlayingList.Play(info, m_Provider.MixerGroup, ctx, IsCreateIfNotEnough);
 			return ctx;
 		}
 
@@ -116,7 +117,7 @@ namespace ILib.Audio
 			var info = m_Cache.GetInfo(key);
 			if (info != null)
 			{
-				m_PlayingList.Play(info, null);
+				m_PlayingList.Play(info, m_Provider.MixerGroup, null, IsCreateIfNotEnough);
 			}
 			else
 			{
@@ -139,7 +140,7 @@ namespace ILib.Audio
 		public void PlayOneShot(SoundInfo info)
 		{
 			if (m_Disposed) return;
-			m_PlayingList.Play(info, null);
+			m_PlayingList.Play(info, m_Provider.MixerGroup, null, IsCreateIfNotEnough);
 		}
 
 		public void AddCache(T prm, Action<bool, Exception> onLoad)
@@ -219,39 +220,15 @@ namespace ILib.Audio
 				return;
 			}
 			if (context != null) context.IsLoading = false;
-			m_PlayingList.Play(info, context);
-		}
-
-		public void Update()
-		{
-			if (m_Disposed)
-			{
-				Remove();
-				return;
-			}
-			//キャッシュ更新
-			m_Cache.Update();
-			//再生リストを更新
-			m_PlayingList.Update();
-		}
-
-		void Remove()
-		{
-			if (!m_Removed)
-			{
-				m_Removed = true;
-				SoundControl.Remove(this, () =>
-				{
-					m_Cache.Clear(false);
-					m_PlayingList.Dispose();
-				});
-			}
+			m_PlayingList.Play(info, m_Provider.MixerGroup, context, IsCreateIfNotEnough);
 		}
 
 		public void Dispose()
 		{
 			if (m_Disposed) return;
 			m_Disposed = true;
+			m_Cache.RemoveRef();
+			m_PlayingList.RemoveRef();
 		}
 
 	}

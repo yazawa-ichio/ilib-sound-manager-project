@@ -4,8 +4,13 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
+	[System.Serializable]
 	public class SoundPlayerConfig
 	{
+		/// <summary>
+		/// 共有プールを利用するか？
+		/// </summary>
+		public bool UseSharedPool = true;
 		/// <summary>
 		/// キャッシュにない場合に遅延ロードをした際に
 		/// 再生リクエストを破棄するタイムアウト時間です。
@@ -19,7 +24,7 @@ namespace ILib.Audio
 		/// 音源プールの最大数です。
 		/// この上限を超えた音源がプールに返却される場合破棄されます。
 		/// </summary>
-		public int MaxPoolCount = 12;
+		public int InitMaxPoolCount = 12;
 		/// <summary>
 		/// キャッシュになく遅延ロードを行った際に
 		/// ロードしたデータをキャッシュするか？

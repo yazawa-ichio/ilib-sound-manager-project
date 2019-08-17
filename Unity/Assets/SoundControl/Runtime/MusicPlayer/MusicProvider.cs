@@ -82,6 +82,9 @@ namespace ILib.Audio
 		Func<string, AudioMixerGroup> m_GroupSelector;
 		public Func<string, AudioMixerGroup> GroupSelector { set => m_GroupSelector = value; }
 
+		Func<T, Action<MusicInfo, Exception>, bool> m_CustomLoad;
+		public Func<T, Action<MusicInfo, Exception>, bool> CustomLoad { set => m_CustomLoad = value; }
+
 		public MusicProviderBase() { }
 
 		public MusicProviderBase(AudioMixerGroup group, string format)
@@ -121,6 +124,10 @@ namespace ILib.Audio
 
 		protected virtual bool Load(T prm, Action<MusicInfo, Exception> onComplete)
 		{
+			if (m_CustomLoad != null)
+			{
+				return m_CustomLoad(prm, onComplete);
+			}
 			string path = GetPath(prm);
 			var op = Resources.LoadAsync(path);
 			op.completed += _ =>

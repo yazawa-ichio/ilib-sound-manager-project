@@ -2,16 +2,19 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace ILib.Audio
 {
-
-	internal class PlayingList : IPlayingList , IDisposable
+	[AddComponentMenu("")]
+	public class PlayingList : MonoBehaviour, IPlayingList , IDisposable
 	{
 		struct Request
 		{
 			public SoundInfo Info;
+			public AudioMixerGroup Group;
 			public PlayingSoundContext Context;
+			public bool Force;
 		}
 
 		Transform m_Root;
@@ -22,13 +25,23 @@ namespace ILib.Audio
 		List<SoundObject> m_Playing = new List<SoundObject>();
 		List<Request> m_Request = new List<Request>();
 
-		public bool IsCreateIfNotEnough { get; set; }
-
 		public int MaxPoolCount { get; set; } = 12;
 
-		public PlayingList(Transform root)
+		int m_RefCount = 0;
+
+		void Awake()
 		{
-			m_Root = root;
+			m_Root = transform;
+		}
+
+		internal void AddRef()
+		{
+			System.Threading.Interlocked.Increment(ref m_RefCount);
+		}
+
+		internal void RemoveRef()
+		{
+			System.Threading.Interlocked.Decrement(ref m_RefCount);
 		}
 
 		public void ReservePool(int count = -1)
@@ -41,40 +54,51 @@ namespace ILib.Audio
 			}
 		}
 
-		public void Play(SoundInfo info, PlayingSoundContext context)
+		internal void Play(SoundInfo info, AudioMixerGroup group, PlayingSoundContext context, bool force)
 		{
 			if (info.PlayControl == null)
 			{
-				PlayImpl(info, context);
+				PlayImpl(info, group, context, force);
 			}
 			else
 			{
 				switch (info.PlayControl.Update(this, info))
 				{
 					case StartControl.Result.Start:
-						PlayImpl(info, context);
+						PlayImpl(info, group, context, force);
 						break;
 					case StartControl.Result.Wait:
-						m_Request.Add(new Request { Info = info, Context = context });
+						m_Request.Add(new Request
+						{
+							Info = info,
+							Group = group,
+							Context = context,
+							Force = force
+						});
 						break;
 				}
 			}
 		}
 
-		void PlayImpl(SoundInfo info, PlayingSoundContext context)
+		void PlayImpl(SoundInfo info, AudioMixerGroup group, PlayingSoundContext context, bool force)
 		{
-			var sound = Borrow();
+			var sound = Borrow(force);
 			if (sound == null)
 			{
 				context.PlayFail();
 				return;
 			}
-			sound.PlayRequest(info, context);
+			sound.PlayRequest(info, group, context);
 			m_Playing.Add(sound);
 		}
 
-		public void Update()
+		void Update()
 		{
+			if (m_RefCount == 0)
+			{
+				Dispose();
+				return;
+			}
 			UpdateRequest();
 			UpdateSoundObject();
 		}
@@ -88,7 +112,7 @@ namespace ILib.Audio
 				switch (info.PlayControl.Update(this, info))
 				{
 					case StartControl.Result.Start:
-						PlayImpl(info, m_Request[i].Context);
+						PlayImpl(info, m_Request[i].Group, m_Request[i].Context, m_Request[i].Force);
 						m_Request[i] = default;
 						remove = true;
 						break;
@@ -127,14 +151,14 @@ namespace ILib.Audio
 			}
 		}
 
-		public void Stop(SoundObject soundObject)
+		internal void Stop(SoundObject soundObject)
 		{
 			int index = m_Playing.IndexOf(soundObject);
 			m_Playing[index] = null;
 			Return(soundObject);
 		}
 
-		SoundObject Borrow()
+		SoundObject Borrow(bool force)
 		{
 			if (m_Stack.Count > 0)
 			{
@@ -145,7 +169,7 @@ namespace ILib.Audio
 				m_TotalCount++;
 				return SoundObject.Create(this, m_Root);
 			}
-			else if (IsCreateIfNotEnough)
+			else if (force)
 			{
 				return SoundObject.Create(this, m_Root);
 			}
@@ -209,11 +233,10 @@ namespace ILib.Audio
 
 		public void Dispose()
 		{
-			GameObject.Destroy(m_Root.gameObject);
 			m_Playing.Clear();
 			m_Stack.Clear();
 			m_Request.Clear();
-			m_Root = null;
+			GameObject.Destroy(gameObject);
 		}
 	}
 }

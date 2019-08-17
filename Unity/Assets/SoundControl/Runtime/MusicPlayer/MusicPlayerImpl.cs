@@ -7,15 +7,15 @@ namespace ILib.Audio
 	/// <summary>
 	/// ミュージックプレイヤーの実体です
 	/// </summary>
-	internal class MusicPlayerImpl : MusicPlayerImpl<string>, IMusicPlayer
+	public class MusicPlayerImpl : MusicPlayerImpl<string>, IMusicPlayer
 	{
-		public MusicPlayerImpl(Transform root, IMusicProvider provider, MusicPlayerConfig config = null) : base(root, provider, config) { }
+		public MusicPlayerImpl(PlayingMusic playingMusic, IMusicProvider provider, MusicPlayerConfig config = null) : base(playingMusic, provider, config) { }
 	}
 
 	/// <summary>
 	/// ミュージックプレイヤーの実体です
 	/// </summary>
-	internal class MusicPlayerImpl<T> : IMusicPlayer<T>, ISoundUpdater
+	public class MusicPlayerImpl<T> : IMusicPlayer<T>
 	{
 		IMusicProvider<T> Provider;
 		MusicStack m_MusicStack = new MusicStack();
@@ -48,15 +48,20 @@ namespace ILib.Audio
 			}
 		}
 
-		public MusicPlayerImpl(Transform root, IMusicProvider<T> provider, MusicPlayerConfig config = null)
+		public MusicPlayerImpl(PlayingMusic playingMusic, IMusicProvider<T> provider, MusicPlayerConfig config = null)
 		{
 			Provider = provider;
-			m_PlayingMusic = new PlayingMusic(root);
+			m_PlayingMusic = playingMusic;
 			if (config != null)
 			{
 				IsCacheInfoInStack = config.IsCacheInfoInStack;
 				MaxPoolCount = config.MaxPoolCount;
 			}
+		}
+
+		~MusicPlayerImpl()
+		{
+			Dispose();
 		}
 
 		public void Change(T prm, float time = 2f, bool clearStack = false)
@@ -66,6 +71,7 @@ namespace ILib.Audio
 
 		public void Change(T prm, MusicPlayConfig config, bool clearStack = false)
 		{
+			if (m_Disposed) return;
 			if (!clearStack && !config.IsOverrideEqualParam && (object)prm == m_MusicStack.Current)
 			{
 				return;
@@ -89,6 +95,7 @@ namespace ILib.Audio
 
 		public void Push(T prm, MusicPlayConfig config)
 		{
+			if (m_Disposed) return;
 			var cur = m_MusicStack.Current;
 			var push = m_MusicStack.Push(prm);
 			if (!config.IsOverrideEqualParam && cur == (object)prm)
@@ -105,6 +112,7 @@ namespace ILib.Audio
 
 		public void Pop(MusicPlayConfig config, bool startLastPosition = false)
 		{
+			if (m_Disposed) return;
 			var cur = m_MusicStack.Current;
 			var pop = m_MusicStack.Pop();
 			if (pop == null)
@@ -126,27 +134,33 @@ namespace ILib.Audio
 
 		public void Stop(float time = 2f)
 		{
+			if (m_Disposed) return;
 			m_PlayingMusic.SetCurrent(null);
 			m_PlayingMusic.Stop(time);
 		}
 
 		public void Pause(float time = 0.3f)
 		{
+			if (m_Disposed) return;
 			m_PlayingMusic.Pause(time);
 		}
 
 		public void Resume(float time = 0.3f)
 		{
+			if (m_Disposed) return;
 			m_PlayingMusic.Resume(time);
 		}
 
 		public void ClearStack()
 		{
+			if (m_Disposed) return;
 			m_MusicStack.Clear();
 		}
 
 		void Play(MusicStack.Entry entry, MusicRequest req, MusicPlayConfig config)
 		{
+			if (m_Disposed) return;
+
 			m_PlayingMusic.SetCurrent(entry);
 
 			if (req.Music != null)
@@ -195,34 +209,12 @@ namespace ILib.Audio
 			return m_MusicStack.GetInfo(prm) ?? m_PlayingMusic.GetCacheInfo(prm) ?? null;
 		}
 
-
-		public void Update()
-		{
-			if (m_Disposed)
-			{
-				Remove();
-				return;
-			}
-			m_PlayingMusic.Update();
-		}
-
-		void Remove()
-		{
-			if (!m_Removed)
-			{
-				m_Removed = true;
-				SoundControl.Remove(this, () =>
-				{
-					m_MusicStack.Clear();
-					m_PlayingMusic.Dispose();
-				});
-			}
-		}
-
 		public void Dispose()
 		{
 			if (m_Disposed) return;
 			m_Disposed = true;
+			m_MusicStack.Clear();
+			m_PlayingMusic.Dispose();
 		}
 	}
 }

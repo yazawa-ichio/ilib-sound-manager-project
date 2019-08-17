@@ -1,6 +1,6 @@
 ﻿namespace ILib.Audio
 {
-	public class MusicRequest
+	internal class MusicRequest
 	{
 		public object Param;
 		public MusicInfo Music;

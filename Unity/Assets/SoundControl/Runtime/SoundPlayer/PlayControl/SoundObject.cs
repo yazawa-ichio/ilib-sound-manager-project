@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Audio;
 
 namespace ILib.Audio
 {
@@ -25,6 +26,7 @@ namespace ILib.Audio
 		bool m_Init = false;
 		PlayingList m_PlayingList;
 		SoundInfo m_Info;
+		AudioMixerGroup m_Group;
 		PlayingSoundContext m_Context;
 		GameObject m_Object;
 		AudioSource m_Source;
@@ -65,14 +67,16 @@ namespace ILib.Audio
 
 		public bool IsPause { get; set; }
 		public bool Loop { set => m_Source.loop = value; }
+
 		public string ControlId;
 		public DateTime PlayStartTime;
 		public bool m_IsPlay;
 
-		public void PlayRequest(SoundInfo info, PlayingSoundContext context)
+		public void PlayRequest(SoundInfo info, AudioMixerGroup group, PlayingSoundContext context)
 		{
 			m_Init = false;
 			m_Info = info;
+			m_Group = group;
 			ControlId = info.ControlId;
 			m_Context = context;
 		}
@@ -88,7 +92,7 @@ namespace ILib.Audio
 			}
 			m_IsPlay = false;
 			m_Source.clip = m_Info.Clip;
-			m_Source.outputAudioMixerGroup = m_Info.Group;
+			m_Source.outputAudioMixerGroup = m_Group;
 			m_Volume = 1f;
 			if (m_Source.volume != m_Info.Volume)
 			{
@@ -173,6 +177,7 @@ namespace ILib.Audio
 		{
 			m_Info = null;
 			ControlId = "";
+			m_Group = null;
 			if (m_Source.isPlaying)
 			{
 				m_Source.Stop();

@@ -12,10 +12,6 @@ namespace ILib.Audio
 		/// </summary>
 		public AudioClip Clip;
 		/// <summary>
-		/// ミキサーのグループです
-		/// </summary>
-		public AudioMixerGroup Group;
-		/// <summary>
 		/// 音量です
 		/// </summary>
 		public float Volume = 1f;

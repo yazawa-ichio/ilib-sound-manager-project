@@ -77,24 +77,23 @@ namespace ILib.Audio
 	public abstract class SoundProviderBase<T> : ISoundProvider<T>
 	{
 
+		public AudioMixerGroup MixerGroup { get; set; }
+
 		Func<string, string> m_PathConversion;
 		public Func<string, string> PathConversion { set => m_PathConversion = value; }
 
-		Func<string, AudioMixerGroup> m_GroupSelector;
-		public Func<string, AudioMixerGroup> GroupSelector { set => m_GroupSelector = value; }
+		Func<T, Action<SoundInfo, Exception>, bool> m_CustomLoad;
+		public Func<T, Action<SoundInfo, Exception>, bool> CustomLoad { set => m_CustomLoad = value; }
 
 		public SoundProviderBase() { }
 
 		public SoundProviderBase(AudioMixerGroup group, string format)
 		{
-			SetGroup(group);
-			SetPathFormat(format);
-		}
-
-		public SoundProviderBase<T> SetGroup(AudioMixerGroup group)
-		{
-			m_GroupSelector = (x) => group;
-			return this;
+			MixerGroup = group;
+			if (!string.IsNullOrEmpty(format))
+			{
+				SetPathFormat(format);
+			}
 		}
 
 		public SoundProviderBase<T> SetPathFormat(string format)
@@ -105,7 +104,7 @@ namespace ILib.Audio
 
 		public abstract string GetCacheKey(T prm);
 
-		string GetPath(T prm)
+		protected string GetPath(T prm)
 		{
 			var key = GetCacheKey(prm);
 			if (m_PathConversion != null)
@@ -122,6 +121,10 @@ namespace ILib.Audio
 
 		protected virtual bool Load(T prm, Action<SoundInfo, Exception> onComplete)
 		{
+			if (m_CustomLoad != null)
+			{
+				return m_CustomLoad(prm, onComplete);
+			}
 			string path = GetPath(prm);
 			var op = Resources.LoadAsync(path);
 			op.completed += _ =>
@@ -129,7 +132,7 @@ namespace ILib.Audio
 				var data = op.asset as SoundData;
 				if (data != null)
 				{
-					onComplete?.Invoke(data.CreateInfo(m_GroupSelector), null);
+					onComplete?.Invoke(data.CreateInfo(), null);
 					return;
 				}
 
@@ -143,10 +146,6 @@ namespace ILib.Audio
 					SoundInfo info = new SoundInfo();
 					info.Clip = clip;
 					info.ControlId = path;
-					if (m_GroupSelector != null)
-					{
-						info.Group = m_GroupSelector("");
-					}
 					onComplete?.Invoke(info, null);
 				}
 			};

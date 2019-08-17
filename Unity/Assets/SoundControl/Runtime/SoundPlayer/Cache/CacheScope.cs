@@ -3,7 +3,7 @@
 namespace ILib.Audio
 {
 
-	internal class CacheScope : ICacheScope
+	public class CacheScope : ICacheScope
 	{
 
 		Action<bool> m_OnLoaded;
