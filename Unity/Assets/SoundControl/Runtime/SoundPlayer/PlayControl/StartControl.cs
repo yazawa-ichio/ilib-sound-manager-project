@@ -22,12 +22,12 @@ namespace ILib.Audio
 			LateArrivalPriority,
 		}
 
-		public static IStartControl Create(Type type, float prm1)
+		public static IStartControl Create(Type type, float prm1, float prm2)
 		{
 			switch (type)
 			{
 				case Type.LimitCount: return new LimitCountControl((int)prm1);
-				case Type.LimitInterval: return new LimitIntervalControl(prm1);
+				case Type.LimitInterval: return new LimitIntervalControl(prm1, prm2);
 				case Type.FirstComeFirstServed: return new FirstComeFirstServedControl();
 				case Type.LateArrivalPriority: return new LateArrivalPriorityControl(prm1);
 			}

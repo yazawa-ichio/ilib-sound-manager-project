@@ -5,7 +5,9 @@ using UnityEngine.Audio;
 
 namespace ILib.Audio
 {
-	[CreateAssetMenu(menuName = "Create MusicData")]
+#if !ILIB_AUDIO_DISABLE_TOOL_MENU
+	[CreateAssetMenu(menuName = "ILib/Audio/MusicData")]
+#endif
 	public class MusicData : ScriptableObject
 	{
 		public AudioClip Clip;

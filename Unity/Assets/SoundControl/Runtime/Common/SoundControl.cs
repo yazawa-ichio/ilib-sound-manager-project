@@ -5,7 +5,7 @@ using UnityEngine;
 namespace ILib.Audio
 {
 	/// <summary>
-	/// オーディオオブジェクトを必要なゲームオブジェクトを確保し管理する用のクラスです。
+	/// オーディオソース等のを必要なゲームオブジェクトを確保し管理する用のクラスです。
 	/// 使用しているプレイヤーが破棄されたときに自動的に削除されます。
 	/// また、Release関数を呼ぶと生成したすべてのプールを強制的に破棄します。
 	/// </summary>
@@ -51,12 +51,12 @@ namespace ILib.Audio
 			s_Initialized = false;
 		}
 
-		static Transform CreatePoolRoot(string name)
+		public static GameObject CreateRoot(string name)
 		{
 			Initialize();
 			GameObject obj = new GameObject(name);
 			obj.transform.SetParent(s_Instance.transform);
-			return obj.transform;
+			return obj;
 		}
 
 		/// <summary>
@@ -65,27 +65,7 @@ namespace ILib.Audio
 		/// </summary>
 		public static PlayingList CreatePlayingList(string name)
 		{
-			return CreatePoolRoot(name).gameObject.AddComponent<PlayingList>();
-		}
-
-		static PlayingList GetPlayingList(string name, SoundPlayerConfig config = null)
-		{
-			bool useSharedPool = config == null || config.UseSharedPool;
-
-			PlayingList list = null;
-			if (useSharedPool)
-			{
-				list = SharedPlayingList;
-			}
-			else
-			{
-				list = CreatePlayingList(name);
-			}
-			if (config != null && list.MaxPoolCount < config.InitMaxPoolCount)
-			{
-				list.MaxPoolCount = config.InitMaxPoolCount;
-			}
-			return list;
+			return CreateRoot(name).AddComponent<PlayingList>();
 		}
 
 		/// <summary>
@@ -94,8 +74,7 @@ namespace ILib.Audio
 		/// </summary>
 		public static ISoundPlayer<T> CreatePlayer<T>(ISoundProvider<T> provider, SoundPlayerConfig config = null)
 		{
-			PlayingList list = GetPlayingList(nameof(ISoundPlayer<T>) + ":" + provider, config);
-			return new SoundPlayerImpl<T>(list, provider, config);
+			return new SoundPlayerImpl<T>(provider, config);
 		}
 
 		/// <summary>
@@ -104,8 +83,7 @@ namespace ILib.Audio
 		/// </summary>
 		public static ISoundPlayer CreatePlayer(ISoundProvider<string> provider, SoundPlayerConfig config = null)
 		{
-			PlayingList list = GetPlayingList(nameof(ISoundPlayer) + ":" + provider, config);
-			return new SoundPlayerImpl(list, provider, config);
+			return new SoundPlayerImpl(provider, config);
 		}
 
 		/// <summary>
@@ -113,7 +91,7 @@ namespace ILib.Audio
 		/// </summary>
 		public static PlayingMusic CreatePlayingMusic(string name)
 		{
-			return CreatePoolRoot(name).gameObject.AddComponent<PlayingMusic>();
+			return CreateRoot(name).AddComponent<PlayingMusic>();
 		}
 
 		/// <summary>

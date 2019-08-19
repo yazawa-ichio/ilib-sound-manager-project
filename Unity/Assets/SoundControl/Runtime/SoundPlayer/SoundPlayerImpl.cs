@@ -12,7 +12,7 @@ namespace ILib.Audio
 	/// </summary>
 	public class SoundPlayerImpl : SoundPlayerImpl<string> , ISoundPlayer
 	{
-		public SoundPlayerImpl(PlayingList list, ISoundProvider<string> provider, SoundPlayerConfig config = null, Cache sharedCache = null) : base(list, provider, config, sharedCache) { }
+		public SoundPlayerImpl(ISoundProvider<string> provider, SoundPlayerConfig config = null) : base(provider, config) { }
 	}
 
 	/// <summary>
@@ -38,18 +38,22 @@ namespace ILib.Audio
 		bool m_Disposed;
 		bool m_Removed;
 
-		public SoundPlayerImpl(PlayingList list, ISoundProvider<T> provider, SoundPlayerConfig config = null, Cache sharedCache = null)
+		public SoundPlayerImpl(ISoundProvider<T> provider, SoundPlayerConfig config = null)
 		{
 			m_Provider = provider;
-			m_PlayingList = list;
+			m_PlayingList = config?.PlayingList ?? SoundControl.SharedPlayingList;
 			m_PlayingList.AddRef();
-			m_Cache = sharedCache ?? new Cache();
+			m_Cache = config?.Cache ?? new Cache();
 			m_Cache.AddRef();
 			if (config != null)
 			{
 				LoadTimeout = config.LoadTimeout;
 				IsCreateIfNotEnough = config.IsCreateIfNotEnough;
 				IsAddCacheIfLoad = config.IsAddCacheIfLoad;
+				if (m_PlayingList.MaxPoolCount < config.InitMaxPoolCount)
+				{
+					m_PlayingList.MaxPoolCount = config.InitMaxPoolCount;
+				}
 			}
 		}
 

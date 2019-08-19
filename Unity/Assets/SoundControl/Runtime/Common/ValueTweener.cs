@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
-	internal class ValueTweener
+	public class ValueTweener
 	{
 		public bool IsRunning;
 		public float CurrentValue;

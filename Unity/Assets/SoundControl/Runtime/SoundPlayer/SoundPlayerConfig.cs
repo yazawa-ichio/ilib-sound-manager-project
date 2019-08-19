@@ -4,13 +4,8 @@ using UnityEngine;
 
 namespace ILib.Audio
 {
-	[System.Serializable]
 	public class SoundPlayerConfig
 	{
-		/// <summary>
-		/// 共有プールを利用するか？
-		/// </summary>
-		public bool UseSharedPool = true;
 		/// <summary>
 		/// キャッシュにない場合に遅延ロードをした際に
 		/// 再生リクエストを破棄するタイムアウト時間です。
@@ -30,5 +25,14 @@ namespace ILib.Audio
 		/// ロードしたデータをキャッシュするか？
 		/// </summary>
 		public bool IsAddCacheIfLoad;
+		/// <summary>
+		/// 再生リストを指定します
+		/// 指定しない場合、共有再生リストを使用します。
+		/// </summary>
+		public PlayingList PlayingList;
+		/// <summary>
+		/// 利用するキャッシュの機能を選択します。
+		/// </summary>
+		public Cache Cache;
 	}
 }
