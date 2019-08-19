@@ -38,13 +38,17 @@ namespace ILib.Audio
 		/// </summary>
 		float Volume { get; set; }
 		/// <summary>
-		/// 0音量から指定の音量にフェードインします。
+		/// 0音量からフェードインします。
 		/// </summary>
-		void FadeIn(float volume, float time);
+		void FadeIn(float time);
 		/// <summary>
 		/// 現在の音量から指定の音量にフェードさせます。
 		/// </summary>
 		void Fade(float end, float time);
+		/// <summary>
+		/// 指定の音量から指定の音量にフェードさせます。
+		/// </summary>
+		void Fade(float start, float end, float time);
 		/// <summary>
 		/// フェードアウトを行います。
 		/// 操作後、他のフェード関数は無効になります。

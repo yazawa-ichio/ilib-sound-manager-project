@@ -103,6 +103,7 @@ namespace ILib.Audio
 			{
 				Request.Position = m_Source.timeSamples;
 			}
+			IsPause = false;
 			m_Source.Stop();
 			m_Source.clip = null;
 

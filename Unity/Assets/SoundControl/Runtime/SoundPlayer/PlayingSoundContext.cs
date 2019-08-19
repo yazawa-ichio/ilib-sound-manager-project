@@ -160,17 +160,24 @@ namespace ILib.Audio
 			m_Target = null;
 		}
 
-		public void FadeIn(float volume, float time)
+		public void FadeIn(float time)
 		{
 			if (!IsValid && m_Stop) return;
-			Volume = volume;
-			m_FadeVolume.Start(0, volume, time);
+			Volume = 0f;
+			m_FadeVolume.Start(0, 1f, time);
 		}
 		
 		public void Fade(float end, float time)
 		{
 			if (!IsValid && m_Stop) return;
 			m_FadeVolume.Start(Volume, end, time);
+		}
+
+		public void Fade(float start, float end, float time)
+		{
+			if (!IsValid && m_Stop) return;
+			Volume = start;
+			m_FadeVolume.Start(start, end, time);
 		}
 
 		public void FadeOut(float time = 0.5f)
