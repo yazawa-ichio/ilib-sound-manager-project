@@ -38,6 +38,10 @@ namespace ILib.Audio
 		/// </summary>
 		float Volume { get; set; }
 		/// <summary>
+		/// 再生に失敗した場合のエラー情報です
+		/// </summary>
+		Exception Error { get; }
+		/// <summary>
 		/// 0音量からフェードインします。
 		/// </summary>
 		void FadeIn(float time);

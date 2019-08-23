@@ -28,13 +28,21 @@ namespace ILib.Audio
 
 		public float Volume
 		{
-			get => m_FadeVolume.CurrentValue;
+			get => m_FadeVolume?.CurrentValue ?? 1f;
 			set
 			{
 				if (CanControl)
 				{
-					m_FadeVolume.Stop();
-					m_Target.Volume = m_FadeVolume.CurrentValue = value;
+					if (m_FadeVolume == null)
+					{
+						m_FadeVolume = new ValueTweener(value);
+						m_Target.Volume = value;
+					}
+					else
+					{
+						m_FadeVolume.Stop();
+						m_Target.Volume = m_FadeVolume.CurrentValue = value;
+					}
 				}
 			}
 		}
@@ -90,6 +98,7 @@ namespace ILib.Audio
 			}
 		}
 
+		public System.Exception Error { get; private set; }
 
 		public float CreateTime;
 		public float LoadingTimeout;
@@ -98,11 +107,6 @@ namespace ILib.Audio
 		bool m_Stop = false;
 		bool m_Disposed;
 		SoundObject m_Target = null;
-
-		public PlayingSoundContext()
-		{
-			m_FadeVolume = new ValueTweener(1f);
-		}
 
 		public void Play(SoundObject obj)
 		{
@@ -122,15 +126,16 @@ namespace ILib.Audio
 			m_Target.Pitch = m_Pitch;
 		}
 
-		public void PlayFail()
+		public void PlayFail(System.Exception error)
 		{
+			Error = error;
 			Dispose();
 		}
 
 		public void Update()
 		{
 			if (!IsValid) return;
-			if (m_FadeVolume.IsRunning)
+			if (m_FadeVolume != null && m_FadeVolume.IsRunning)
 			{
 				m_Target.Volume = m_FadeVolume.Get(Time.unscaledDeltaTime);
 			}
@@ -164,12 +169,14 @@ namespace ILib.Audio
 		{
 			if (!IsValid && m_Stop) return;
 			Volume = 0f;
+			if (m_FadeVolume == null) m_FadeVolume = new ValueTweener(0);
 			m_FadeVolume.Start(0, 1f, time);
 		}
 		
 		public void Fade(float end, float time)
 		{
 			if (!IsValid && m_Stop) return;
+			if (m_FadeVolume == null) m_FadeVolume = new ValueTweener(Volume);
 			m_FadeVolume.Start(Volume, end, time);
 		}
 
@@ -177,12 +184,14 @@ namespace ILib.Audio
 		{
 			if (!IsValid && m_Stop) return;
 			Volume = start;
+			if (m_FadeVolume == null) m_FadeVolume = new ValueTweener(start);
 			m_FadeVolume.Start(start, end, time);
 		}
 
 		public void FadeOut(float time = 0.5f)
 		{
 			if (!IsValid && m_Stop) return;
+			if (m_FadeVolume == null) m_FadeVolume = new ValueTweener(Volume);
 			m_FadeVolume.Start(Volume, 0, time, () => Dispose());
 			m_Stop = true;
 		}

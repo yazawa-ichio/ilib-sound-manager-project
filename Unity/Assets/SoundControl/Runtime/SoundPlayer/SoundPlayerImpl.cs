@@ -92,7 +92,7 @@ namespace ILib.Audio
 				{
 					if (m_Disposed)
 					{
-						ctx.PlayFail();
+						ctx.PlayFail(ex);
 						return;
 					}
 					OnLoad(x, ex, ctx);
@@ -212,15 +212,20 @@ namespace ILib.Audio
 
 		internal void OnLoad(SoundInfo info, Exception error, PlayingSoundContext context)
 		{
-			if (m_Disposed || error != null || info == null)
+			if (error != null)
 			{
-				context?.PlayFail();
+				context?.PlayFail(error);
+				return;
+			}
+			if (m_Disposed || info == null)
+			{
+				context?.PlayFail(new AbortException("再生を中断しました"));
 				return;
 			}
 			//タイムアウト判定
 			if (context != null && (Time.unscaledDeltaTime - context.CreateTime > context.LoadingTimeout))
 			{
-				context?.PlayFail();
+				context?.PlayFail(new TimeoutException("ロードの遅延でタイムアウトが発生しました"));
 				return;
 			}
 			if (context != null) context.IsLoading = false;

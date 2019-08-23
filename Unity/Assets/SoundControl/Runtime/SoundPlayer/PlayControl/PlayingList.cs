@@ -85,7 +85,7 @@ namespace ILib.Audio
 			var sound = Borrow(force);
 			if (sound == null)
 			{
-				context.PlayFail();
+				context.PlayFail(new NotPoolException("プールから音源を確保できませんでした"));
 				return;
 			}
 			sound.PlayRequest(info, group, context);
