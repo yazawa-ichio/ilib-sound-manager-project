@@ -1,0 +1,3 @@
+[submodule "Unity/Assets/ilib-sound-control"]
+	path = Unity/Assets/ilib-sound-control
+	url = https://github.com/yazawa-ichio/ilib-sound-control
