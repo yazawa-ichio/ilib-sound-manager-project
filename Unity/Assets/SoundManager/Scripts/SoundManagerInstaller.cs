@@ -10,14 +10,15 @@ namespace ILib.Audio.SoundManagement
 	public class SoundManagerInstaller : MonoBehaviour
 	{
 		[SerializeField]
-		ConfigAssetBase m_Config = null;
+		ConfigAsset m_Config = null;
 
 		[SerializeField]
 		bool m_DontDestroy = false;
 
 		private void Awake()
 		{
-			SoundManager.Initialize(m_Config.GetConfig());
+			var loader = GetComponent<ISoundLoader>();
+			SoundManager.Initialize(m_Config.GetConfig(loader));
 			if (m_DontDestroy)
 			{
 				GameObject.DontDestroyOnLoad(gameObject);

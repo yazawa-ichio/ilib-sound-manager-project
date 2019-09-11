@@ -9,11 +9,7 @@ namespace ILib.Audio.SoundManagement
 #if !ILIB_AUDIO_DISABLE_TOOL_MENU
 	[CreateAssetMenu(menuName = "ILib/Audio/SoundManagerConfig")]
 #endif
-	public class ConfigAsset : ConfigAssetBase
-	{
-	}
-
-	public abstract class ConfigAssetBase : ScriptableObject
+	public class ConfigAsset : ScriptableObject
 	{
 		[Serializable]
 		public class MusicConfig
@@ -43,8 +39,6 @@ namespace ILib.Audio.SoundManagement
 			}
 		}
 
-
-
 		[SerializeField]
 		AudioMixer m_Mixer = null;
 
@@ -63,19 +57,26 @@ namespace ILib.Audio.SoundManagement
 		[SerializeField, Header("ゲーム中に使用するボイス用の設定です")]
 		SoundConfig m_VoiceSE = null;
 
-		protected virtual Func<string, Action<MusicInfo, Exception>, bool> LoadMusic() => null;
-		protected virtual Func<string, Action<SoundInfo, Exception>, bool> LoadSound() => null;
-		protected virtual Func<string, Action<SoundInfo, Exception>, bool> LoadVoice() => null;
-
-		public Config GetConfig()
+		public Config GetConfig(ISoundLoader loader = null)
 		{
 			var config = new Config();
 			config.Mixer = m_Mixer;
-			config.BgmProvider = m_Bgm.CreateProvider(LoadMusic());
-			config.GameSeProvider = m_GameSE.CreateProvider(LoadSound());
-			config.UISEProvider = m_UISE.CreateProvider(LoadSound());
-			config.JingleProvider = m_JingleSE.CreateProvider(LoadSound());
-			config.VoiceProvider = m_VoiceSE.CreateProvider(LoadSound());
+			if (loader == null)
+			{
+				config.BgmProvider = m_Bgm.CreateProvider(null);
+				config.GameSeProvider = m_GameSE.CreateProvider(null);
+				config.UISEProvider = m_UISE.CreateProvider(null);
+				config.JingleProvider = m_JingleSE.CreateProvider(null);
+				config.VoiceProvider = m_VoiceSE.CreateProvider(null);
+			}
+			else
+			{
+				config.BgmProvider = m_Bgm.CreateProvider(loader.LoadMusic);
+				config.GameSeProvider = m_GameSE.CreateProvider(loader.LoadSound);
+				config.UISEProvider = m_UISE.CreateProvider(loader.LoadSound);
+				config.JingleProvider = m_JingleSE.CreateProvider(loader.LoadSound);
+				config.VoiceProvider = m_VoiceSE.CreateProvider(loader.LoadVoice);
+			}
 			return config;
 		}
 
